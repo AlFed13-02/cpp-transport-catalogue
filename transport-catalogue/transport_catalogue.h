@@ -29,11 +29,18 @@ struct Bus {
     std::vector<const Stop*> route;
 };
 
+struct RouteInfo {
+    int stop_count;
+    int unique_stop_count;
+    double distance;
+    double curvature;
+};
+    
 class TransportCatalogue {
 public:
     TransportCatalogue() = default;
     
-    const Stop* AddStop(const std::string& name, double lat, double lng);
+    void AddStop(const std::string& name, double lat, double lng);
     const Stop* FindStop(std::string_view name) const;
     const std::optional<std::set<std::string_view>> GetBusesPassingThroughStop(std::string_view name) const;
     void SetDistanceBetweenStops(const Stop* stop1, const Stop* stop2, int distance);
@@ -41,7 +48,7 @@ public:
     
    void AddBus(const std::string& name, const std::vector<std::string>& stop_names);
    const Bus* FindBus(std::string_view name) const;
-   const std::optional<std::tuple<int, int, double, double>> GetBusInfo(std::string_view name) const;
+   const std::optional<RouteInfo> GetBusInfo(std::string_view name) const;
    
     
 private:

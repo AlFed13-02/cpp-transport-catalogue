@@ -14,9 +14,8 @@ int main() {
     using namespace transport_catalogue;
     
     TransportCatalogue transport_catalogue;
-    
-    
-    input::FillTransportCatalogue(transport_catalogue);
-    output::ProcessRequests(transport_catalogue);
+
+    input::FillTransportCatalogue(transport_catalogue, std::cin);
+    output::ProcessRequests(transport_catalogue, std::cin, std::cout);
 }
 

@@ -26,11 +26,10 @@ std::size_t StopPairHasher::operator()(const std::pair<const Stop*, const Stop*>
 }
 }
     
-const Stop* TransportCatalogue::AddStop(const std::string& name, double lat, double lng) {
+void TransportCatalogue::AddStop(const std::string& name, double lat, double lng) {
     stops_.emplace_back(name, lat, lng);
     stops_lookup_[stops_.back().name] = &stops_.back();
     stop_to_buses_.emplace(&stops_.back(), std::set<std::string_view>{});
-    return &stops_.back();
 } 
 
 const Stop* TransportCatalogue::FindStop(std::string_view name) const{
@@ -89,7 +88,7 @@ const Bus* TransportCatalogue::FindBus(std::string_view name) const {
     return nullptr;
 }
 
-const std::optional<std::tuple<int, int, double, double>> TransportCatalogue::GetBusInfo(std::string_view name) const {
+const std::optional<RouteInfo> TransportCatalogue::GetBusInfo(std::string_view name) const {
     auto bus = FindBus(name);
     if (!bus) {
         return std::nullopt;
@@ -120,6 +119,6 @@ const std::optional<std::tuple<int, int, double, double>> TransportCatalogue::Ge
         });
     
     auto curvature = real_distance / geo_distance;
-    return std::tie(stop_count, unique_stop_count, real_distance, curvature);
+    return RouteInfo{stop_count, unique_stop_count, real_distance, curvature};
 }
 }
