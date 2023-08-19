@@ -1,7 +1,9 @@
 #include "transport_catalogue.h"
 #include "geo.h"
+#include "domain.h"
 
 #include <string>
+#include <vector>
 #include <map>
 #include <utility>
 #include <iostream>
@@ -15,16 +17,6 @@
 using namespace std::literals;
 
 namespace transport_catalogue {
-Stop::Stop(std::string name, double lat, double lng)
-    : name(name)
-    , coordinates{lat, lng} {
-}
-
-namespace detail {
-std::size_t StopPairHasher::operator()(const std::pair<const Stop*, const Stop*>& stop_pair) const {
-    return std::hash<const void*>{}(stop_pair.first) + 37 * std::hash<const void*>{}(stop_pair.second);
-}
-}
     
 void TransportCatalogue::AddStop(const std::string& name, double lat, double lng) {
     stops_.emplace_back(name, lat, lng);
@@ -32,41 +24,52 @@ void TransportCatalogue::AddStop(const std::string& name, double lat, double lng
     stop_to_buses_.emplace(&stops_.back(), std::set<std::string_view>{});
 } 
 
-const Stop* TransportCatalogue::FindStop(std::string_view name) const{
+const domain::Stop* TransportCatalogue::FindStop(std::string_view name) const{
     if (stops_lookup_.count(name)) {
         return stops_lookup_.at(name);
     }
     return nullptr;
 }
 
-const std::optional<std::set<std::string_view>> TransportCatalogue::GetBusesPassingThroughStop(std::string_view name) const {
+const std::optional<domain::StopStat> TransportCatalogue::GetStopStat(std::string_view name) const {
     auto stop = FindStop(name);
     
     if (!stop) {
         return std::nullopt;
     }
     
-    return stop_to_buses_.at(stop);
+    return domain::StopStat{stop->name, stop_to_buses_.at(stop)};
 }
 
-double TransportCatalogue::GetDistanceBetweenStops(const Stop* stop1, const Stop* stop2) const {
-    if (real_distance_between_stops_.count(std::make_pair(stop1, stop2))) {
-        return real_distance_between_stops_.at(std::make_pair(stop1, stop2));
-    } else if (real_distance_between_stops_.count(std::make_pair(stop2, stop1))) {
-        return real_distance_between_stops_.at(std::make_pair(stop2, stop1));
+double TransportCatalogue::GetDistanceBetweenStops(const domain::Stop* stop1, const domain::Stop* stop2) const {
+    if (road_distances_.count(std::make_pair(stop1, stop2))) {
+        return road_distances_.at(std::make_pair(stop1, stop2));
+    } else if (road_distances_.count(std::make_pair(stop2, stop1))) {
+        return road_distances_.at(std::make_pair(stop2, stop1));
     } else {
         return geo::ComputeDistance(stop2->coordinates, stop1->coordinates);
     }
 }
 
-void TransportCatalogue::SetDistanceBetweenStops(const Stop* stop1, const Stop* stop2, int distance) {
-    real_distance_between_stops_.emplace(std::make_pair(std::make_pair(stop1, stop2), distance));
+void TransportCatalogue::SetDistanceBetweenStops(const domain::Stop* stop1, const domain::Stop* stop2, int distance) {
+    road_distances_.emplace(std::make_pair(std::make_pair(stop1, stop2), distance));
 }
 
-void TransportCatalogue::AddBus(const std::string& name, const std::vector<std::string>& stop_names) {
-    Bus bus;
+std::vector<geo::Coordinates> TransportCatalogue::GetStopsCoordinates() const {
+    std::vector<geo::Coordinates> result;
+    for (const auto& [stop, buses]: stop_to_buses_) {
+        if (!buses.empty()) {
+            result.push_back(stop->coordinates);
+        }
+    }
+    return result;
+}
+    
+void TransportCatalogue::AddBus(const std::string& name, const std::vector<std::string>& stop_names, bool is_roundtrip) {
+    domain::Bus bus;
     
     bus.name = name;
+    bus.is_roundtrip = is_roundtrip;
     
     for (const std::string& name: stop_names) {
         auto stop = FindStop(name);
@@ -81,14 +84,14 @@ void TransportCatalogue::AddBus(const std::string& name, const std::vector<std::
     } 
 }
 
-const Bus* TransportCatalogue::FindBus(std::string_view name) const {
+const domain::Bus* TransportCatalogue::FindBus(std::string_view name) const {
     if (buses_lookup_.count(name)) {
         return buses_lookup_.at(name);
     }
     return nullptr;
 }
 
-const std::optional<RouteInfo> TransportCatalogue::GetBusInfo(std::string_view name) const {
+const std::optional<domain::BusStat> TransportCatalogue::GetBusStat(std::string_view name) const {
     auto bus = FindBus(name);
     if (!bus) {
         return std::nullopt;
@@ -119,6 +122,23 @@ const std::optional<RouteInfo> TransportCatalogue::GetBusInfo(std::string_view n
         });
     
     auto curvature = real_distance / geo_distance;
-    return RouteInfo{stop_count, unique_stop_count, real_distance, curvature};
+    return domain::BusStat{bus->name, stop_count, unique_stop_count, real_distance, curvature};
+}
+    
+domain::MapStat TransportCatalogue::GetRoutesMapStat() const {
+    std::set<const domain::Bus*, domain::detail::BusPtrCompare> buses;
+    for (const auto& bus: buses_) {
+        if (!bus.route.empty()) {
+            buses.insert(&bus);
+        }
+    }
+    
+    std::set<const domain::Stop*, domain::detail::StopPtrCompare> stops;
+    for (const auto& [stop, buses]: stop_to_buses_) {
+        if (!buses.empty()) {
+            stops.insert(stop);
+        }
+    }
+    return {buses, stops};
 }
 }
