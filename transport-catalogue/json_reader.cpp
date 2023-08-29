@@ -1,5 +1,6 @@
 #include "json_reader.h"
 #include "json.h"
+#include "json_builder.h"
 
 #include <iostream>
 #include <utility>
@@ -20,17 +21,17 @@ void JsonReader::LoadJson(std::istream& input) {
 }
 
 void JsonReader::ProcessBaseRequests() const {
-    auto requests = doc_.GetRoot().AsMap().at("base_requests"s);
+    auto requests = doc_.GetRoot().AsDict().at("base_requests"s);
     
     std::vector<domain::BusBaseRequest> bus_requests;
     std::vector<domain::StopBaseRequest> stop_requests;
     
     for (const auto& request: requests.AsArray()) {
-        auto request_type = request.AsMap().at("type").AsString();
+        auto request_type = request.AsDict().at("type").AsString();
         if (request_type == "Stop"s){
-            stop_requests.push_back(ExtractStopBaseRequest(request.AsMap()));
+            stop_requests.push_back(ExtractStopBaseRequest(request.AsDict()));
         } else {
-            bus_requests.push_back(ExtractBusBaseRequest(request.AsMap()));
+            bus_requests.push_back(ExtractBusBaseRequest(request.AsDict()));
         }
     }
     
@@ -44,7 +45,7 @@ domain::StopBaseRequest JsonReader::ExtractStopBaseRequest(const json::Dict& req
     auto lng = request.at("longitude"s).AsDouble();
     
     std::unordered_map<std::string, int> distances;
-    for (const auto& [key, value]: request.at("road_distances"s).AsMap()) {
+    for (const auto& [key, value]: request.at("road_distances"s).AsDict()) {
        distances[key] = value.AsInt(); 
     }
     
@@ -65,52 +66,54 @@ domain::BusBaseRequest JsonReader::ExtractBusBaseRequest(const json::Dict& reque
 
 
 json::Document JsonReader::ProcessStatRequests() const {
-    auto requests = doc_.GetRoot().AsMap().at("stat_requests"s).AsArray();
+    auto requests = doc_.GetRoot().AsDict().at("stat_requests"s).AsArray();
     
-    json::Array responses;
+    json::Builder response_builder;
+    response_builder.StartArray();
     for (const auto& request: requests) {
-        json::Dict response;
-        response["request_id"s] = json::Node(request.AsMap().at("id"s).AsInt());
+        json::Builder response_part_builder; 
+        response_part_builder.StartDict()
+            .Key("request_id"s).Value(request.AsDict().at("id"s).AsInt());
         
-        auto request_type = request.AsMap().at("type").AsString();
+        auto request_type = request.AsDict().at("type").AsString();
         if (request_type == "Bus"s) {
-            auto bus_stat = request_handler_.GetBusStat(request.AsMap().at("name"s).AsString());
+            auto bus_stat = request_handler_.GetBusStat(request.AsDict().at("name"s).AsString());
             if (bus_stat) {
-                response["curvature"s] = json::Node(bus_stat->curvature);
-                response["route_length"s] = json::Node(bus_stat->route_length);
-                response["stop_count"s] = json::Node(bus_stat->stop_count);
-                response["unique_stop_count"s] = json::Node(bus_stat->unique_stop_count);
+                response_part_builder
+                    .Key("curvature"s).Value(bus_stat->curvature)
+                    .Key("route_length"s).Value(bus_stat->route_length)
+                    .Key("stop_count"s).Value(bus_stat->stop_count)
+                    .Key("unique_stop_count"s).Value(bus_stat->unique_stop_count);
             } else {
-                response["error_message"s] = json::Node("not found"s);
+                response_part_builder.Key("error_message"s).Value("not found"s);
             }
         } else if (request_type == "Stop"s) {
-            auto stop_stat = request_handler_.GetStopStat(request.AsMap().at("name"s).AsString());
+            auto stop_stat = request_handler_.GetStopStat(request.AsDict().at("name"s).AsString());
             if (stop_stat) {
-                json::Array buses;
+                response_part_builder.Key("buses"s).StartArray();
                 for (auto bus_name: stop_stat->buses) {
-                    buses.push_back(json::Node(std::string{bus_name}));
+                    response_part_builder.Value(std::string{bus_name});
                 }
-        
-                response["buses"s] = json::Node(buses);
+                response_part_builder.EndArray();
             } else {
-                response["error_message"s] = json::Node("not found"s);
+                response_part_builder.Key("error_message"s).Value("not found"s);
             }
         } else if (request_type == "Map"s) {
             auto settings = GetRenderSettings();
             auto doc = request_handler_.RenderRoutes(settings);
             std::ostringstream out;
             doc.Render(out);
-            response["map"s] = json::Node(out.str()); 
+            response_part_builder.Key("map"s).Value(out.str()); 
         }
-        responses.push_back(std::move(response));                                        
+        response_builder.Value(response_part_builder.EndDict().Build().AsDict()).EndDict();                                        
     }
     
-    return json::Document(json::Node(responses));
+    return json::Document(response_builder.EndArray().Build());
 }
 
 RenderSettings JsonReader::GetRenderSettings() const {
     RenderSettings settings;
-    auto json_settings = doc_.GetRoot().AsMap().at("render_settings"s).AsMap();
+    auto json_settings = doc_.GetRoot().AsDict().at("render_settings"s).AsDict();
     
     settings.width = json_settings.at("width"s).AsDouble();
     settings.height = json_settings.at("height"s).AsDouble();
