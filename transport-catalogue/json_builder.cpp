@@ -14,10 +14,10 @@ KeyItemContext Builder::Key(std::string key) {
     
     if (!nodes_stack_.back()->IsDict()) {
         throw std::logic_error("Key() invokation outside the Dict"s);
-    } else if (last_key_) {
-        throw std::logic_error("The key is already set"s);
     }
-    last_key_.emplace(key);
+
+    auto& dict = const_cast<Dict&>(nodes_stack_.back()->AsDict());
+    nodes_stack_.emplace_back(&dict[key]);
     return KeyItemContext(*this);
 }
     
@@ -28,20 +28,6 @@ BaseContext Builder::Value(Node::Value value) {
         root_ = std::visit([](auto v) {return Node(v);}, value);
         untouched_ = false;
         return BaseContext(*this);
-    } else if (nodes_stack_.back()->IsDict()) {
-        if (last_key_) {
-            auto& dict = const_cast<Dict&>(nodes_stack_.back()->AsDict());
-            dict.emplace(*last_key_, std::visit([](auto v) {return Node(v);}, value));
-            
-            if (dict.at(*last_key_).IsArray() || dict.at(*last_key_).IsDict()) {
-                nodes_stack_.push_back(&dict.at(*last_key_));
-            }
-            
-            last_key_.reset();
-        } else {
-            throw std::logic_error("Invoke Key() function first"s);
-        }
-        return DictItemContext(*this);
     } else if (nodes_stack_.back()->IsArray()) {
         auto& array = const_cast<Array&>(nodes_stack_.back()->AsArray());
         array.emplace_back(std::visit([](auto v) {return Node(v);}, value));
@@ -51,8 +37,17 @@ BaseContext Builder::Value(Node::Value value) {
         }
         
         return ArrayItemContext(*this);
+    } else if (nodes_stack_.back()->IsNull()) {
+        auto val = json::Node(std::visit([](auto v) {return Node(v);}, value));
+        *nodes_stack_.back() = val;
+        
+         if (!(val.IsArray() || val.IsDict())) {
+            nodes_stack_.pop_back();
+         }
+            
+        return DictItemContext(*this);
     } else {
-        throw std::logic_error("Cannot add value"s);
+        throw std::logic_error("Can't insert value"s);
     }
 }
 
@@ -86,7 +81,7 @@ ArrayItemContext Builder::StartArray() {
 BaseContext Builder::EndDict() {
     ThrowIfReady();
     
-    if (nodes_stack_.back()->IsDict() && !last_key_) {
+    if (nodes_stack_.back()->IsDict()) {
         nodes_stack_.pop_back();
     } else {
         throw std::logic_error("Before end the Dict you should start it"s);

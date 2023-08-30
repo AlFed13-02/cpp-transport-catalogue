@@ -26,7 +26,6 @@ public:
 private:
     Node root_;
     std::vector<Node*> nodes_stack_;
-    std::optional<std::string> last_key_;
     bool untouched_ = true; 
     
     void ThrowIfReady() const;
