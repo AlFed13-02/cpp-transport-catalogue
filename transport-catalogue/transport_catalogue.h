@@ -2,6 +2,8 @@
 
 #include "geo.h"
 #include "domain.h"
+#include "graph.h"
+#include "router.h"
 
 #include <unordered_map>
 #include <string>
@@ -10,6 +12,7 @@
 #include <vector>
 #include <optional>
 #include <set>
+#include <utility>
 
 namespace transport_catalogue {
     
@@ -23,13 +26,16 @@ public:
     void SetDistanceBetweenStops(const domain::Stop* stop1, const domain::Stop* stop2, int distance);
     double GetDistanceBetweenStops(const domain::Stop* stop1, const domain::Stop* stop2) const;
     std::vector<geo::Coordinates> GetStopsCoordinates() const;
+    size_t GetStopIdByName(const std::string& name) const;
     
-   void AddBus(const std::string& name, const std::vector<std::string>& stop_names, bool is_roundtrip);
-   const domain::Bus* FindBus(std::string_view name) const;
-   const std::optional<domain::BusStat> GetBusStat(std::string_view name) const;
-   domain::MapStat GetRoutesMapStat() const;
+    void AddBus(const std::string& name, const std::vector<std::string>& stop_names, bool is_roundtrip);
+    const domain::Bus* FindBus(std::string_view name) const;
+    const std::optional<domain::BusStat> GetBusStat(std::string_view name) const;
+    domain::MapStat GetRoutesMapStat() const;
+    
+    using Graph = graph::DirectedWeightedGraph<double>;
+    std::pair<Graph, std::vector<domain::RouteItem>> AsGraph(const domain::RoutingSettings& settings) const;
    
-    
 private:
     std::deque<domain::Stop> stops_;
     std::deque<domain::Bus> buses_;

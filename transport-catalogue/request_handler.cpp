@@ -1,5 +1,6 @@
 #include "request_handler.h"
 #include "transport_catalogue.h"
+#include "transport_router.h"
 
 #include <string>
 #include <unordered_map>
@@ -63,4 +64,9 @@ svg::Document RequestHandler::RenderRoutes(const RenderSettings& settings) const
     MapRenderer renderer(coordinates.begin(), coordinates.end(), settings);
     auto map_stat = db_.GetRoutesMapStat();
     return renderer.Render(map_stat);
+}
+
+TransportRouter RequestHandler::GetRouter(const domain::RoutingSettings& settings) const {
+    const auto [graph, edge_descriptions] = db_.AsGraph(settings);
+    return TransportRouter(db_, graph, edge_descriptions);
 }

@@ -1,6 +1,8 @@
 #include "transport_catalogue.h"
 #include "geo.h"
 #include "domain.h"
+#include "graph.h"
+#include "transport_router.h"
 
 #include <string>
 #include <vector>
@@ -13,6 +15,8 @@
 #include <unordered_set>
 #include <set>
 #include <string_view>
+#include <algorithm>
+#include <iterator>
 
 using namespace std::literals;
 
@@ -140,5 +144,67 @@ domain::MapStat TransportCatalogue::GetRoutesMapStat() const {
         }
     }
     return {buses, stops};
+}
+    
+std::pair<TransportCatalogue::Graph, std::vector<domain::RouteItem>> TransportCatalogue::AsGraph(const domain::RoutingSettings& settings) const {
+    Graph graph(stops_.size() * 2);
+    std::vector<domain::RouteItem> edge_descriptions;
+    for (const auto& bus: buses_) {
+        for (size_t i = 0; i != bus.route.size(); ++i) {
+            int span_count = 0;
+            
+            domain::RouteItem edge_description{
+                bus.route.at(i)->name,
+                bus.route.at(i)->name,
+                bus.name,
+                span_count,
+                static_cast<double>(settings.bus_wait_time)
+            };
+            
+            edge_descriptions.push_back(edge_description);
+            
+            size_t stop1_id = GetStopIdByName(edge_description.from);
+            size_t stop1_dup_id = stop1_id + stops_.size();
+            
+            graph::Edge<double> edge{
+                stop1_id,
+                stop1_dup_id,
+                edge_description.time
+            };
+            
+            graph.AddEdge(edge);
+            
+            double time = 0;
+            for (size_t j = i + 1; j != bus.route.size(); ++j) {
+                ++span_count;
+                auto distance = GetDistanceBetweenStops(bus.route.at(j -1), bus.route.at(j));
+                time += distance / (settings.bus_velocity * 1000. / 60);
+                
+                domain::RouteItem edge_description{
+                    bus.route.at(i)->name,
+                    bus.route.at(j)->name,
+                    bus.name,
+                    span_count,
+                    time
+                };
+                
+                edge_descriptions.push_back(edge_description);
+                
+                graph::Edge<double> edge{
+                    stop1_dup_id,
+                    GetStopIdByName(edge_description.to),
+                    edge_description.time
+                };
+                
+                graph.AddEdge(edge);
+            }
+        }
+    }
+    return std::make_pair(graph, edge_descriptions);
+}
+    
+size_t TransportCatalogue::GetStopIdByName(const std::string& name) const {
+    auto it = std::find_if(stops_.begin(), stops_.end(), [name](const auto& item) { return item.name == name;});
+    return std::distance(stops_.begin(), it);
 }
 }

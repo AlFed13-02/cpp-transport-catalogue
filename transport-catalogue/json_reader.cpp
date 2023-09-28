@@ -1,11 +1,14 @@
 #include "json_reader.h"
 #include "json.h"
 #include "json_builder.h"
+#include "map_renderer.h"
+#include "transport_router.h"
 
 #include <iostream>
 #include <utility>
 #include <vector>
 #include <sstream>
+#include <string>
 
 using namespace std::literals;
 /*
@@ -13,11 +16,9 @@ using namespace std::literals;
  * а также код обработки запросов к базе и формирование массива ответов в формате JSON
  */
 
-JsonReader::JsonReader(RequestHandler& request_handler) 
-    : request_handler_(request_handler) {}
-
-void JsonReader::LoadJson(std::istream& input) {
-    doc_ = std::move(json::Load(input));
+JsonReader::JsonReader(std::istream& input, RequestHandler& request_handler) 
+    : doc_(std::move(json::Load(input)))
+    , request_handler_(request_handler) {
 }
 
 void JsonReader::ProcessBaseRequests() const {
@@ -66,6 +67,9 @@ domain::BusBaseRequest JsonReader::ExtractBusBaseRequest(const json::Dict& reque
 
 
 json::Document JsonReader::ProcessStatRequests() const {
+    auto routing_settings = GetRoutingSettings();
+    auto router = request_handler_.GetRouter(routing_settings);
+    
     auto requests = doc_.GetRoot().AsDict().at("stat_requests"s).AsArray();
     
     json::Builder response_builder;
@@ -77,37 +81,17 @@ json::Document JsonReader::ProcessStatRequests() const {
         
         auto request_type = request.AsDict().at("type").AsString();
         if (request_type == "Bus"s) {
-            auto bus_stat = request_handler_.GetBusStat(request.AsDict().at("name"s).AsString());
-            if (bus_stat) {
-                response_part_builder
-                    .Key("curvature"s).Value(bus_stat->curvature)
-                    .Key("route_length"s).Value(bus_stat->route_length)
-                    .Key("stop_count"s).Value(bus_stat->stop_count)
-                    .Key("unique_stop_count"s).Value(bus_stat->unique_stop_count);
-            } else {
-                response_part_builder.Key("error_message"s).Value("not found"s);
-            }
+            BuildResponseForBusRequest(request.AsDict(), response_part_builder);
         } else if (request_type == "Stop"s) {
-            auto stop_stat = request_handler_.GetStopStat(request.AsDict().at("name"s).AsString());
-            if (stop_stat) {
-                response_part_builder.Key("buses"s).StartArray();
-                for (auto bus_name: stop_stat->buses) {
-                    response_part_builder.Value(std::string{bus_name});
-                }
-                response_part_builder.EndArray();
-            } else {
-                response_part_builder.Key("error_message"s).Value("not found"s);
-            }
+            BuildResponseForStopRequest(request.AsDict(), response_part_builder);
         } else if (request_type == "Map"s) {
-            auto settings = GetRenderSettings();
-            auto doc = request_handler_.RenderRoutes(settings);
-            std::ostringstream out;
-            doc.Render(out);
-            response_part_builder.Key("map"s).Value(out.str()); 
+            BuildResponseForMapRequest(response_part_builder);
+        } else if (request_type == "Route"s) {
+            BuildResponseForRouteRequest(request.AsDict(), response_part_builder, router);
         }
-        response_builder.Value(response_part_builder.EndDict().Build().AsDict()).EndDict();                                        
+        
+        response_builder.Value(response_part_builder.EndDict().Build().AsDict()).EndDict();     
     }
-    
     return json::Document(response_builder.EndArray().Build());
 }
 
@@ -142,6 +126,16 @@ RenderSettings JsonReader::GetRenderSettings() const {
     return settings;
 }
 
+domain::RoutingSettings JsonReader::GetRoutingSettings() const {
+    domain::RoutingSettings settings;
+    auto json_settings = doc_.GetRoot().AsDict().at("routing_settings"s).AsDict();
+    
+    settings.bus_wait_time = json_settings.at("bus_wait_time"s).AsInt();
+    settings.bus_velocity = json_settings.at("bus_velocity"s).AsInt();
+    
+    return settings;
+}
+
 svg::Color JsonReader::TransformToColor(const json::Node& node) {
     if (node.IsString()) {
         return node.AsString();
@@ -154,4 +148,76 @@ svg::Color JsonReader::TransformToColor(const json::Node& node) {
             
     return svg::Rgba{static_cast<std::uint8_t>(arr[0].AsInt()), static_cast<std::uint8_t>(arr[1].AsInt()), static_cast<std::uint8_t>(arr[2].AsInt()), arr[3].AsDouble()};   
     
+}
+
+void JsonReader::BuildResponseForBusRequest(const json::Dict& request, json::Builder& builder) const {
+    auto bus_stat = request_handler_.GetBusStat(request.at("name"s).AsString());
+    if (bus_stat) {
+        builder
+            .Key("curvature"s).Value(bus_stat->curvature)
+            .Key("route_length"s).Value(bus_stat->route_length)
+            .Key("stop_count"s).Value(bus_stat->stop_count)
+            .Key("unique_stop_count"s).Value(bus_stat->unique_stop_count);
+    } else {
+        builder.Key("error_message"s).Value("not found"s);
+    }
+}
+
+void JsonReader::BuildResponseForStopRequest(const json::Dict& request, json::Builder& builder) const {
+auto stop_stat = request_handler_.GetStopStat(request.at("name"s).AsString());
+    if (stop_stat) {
+        builder.Key("buses"s).StartArray();
+        for (auto bus_name: stop_stat->buses) {
+            builder.Value(std::string{bus_name});
+        }
+        builder.EndArray();
+    } else {
+        builder.Key("error_message"s).Value("not found"s);
+    }         
+}
+
+void JsonReader::BuildResponseForMapRequest(json::Builder& builder) const {
+    auto settings = GetRenderSettings();
+    auto doc = request_handler_.RenderRoutes(settings);
+    std::ostringstream out;
+    doc.Render(out);
+    builder.Key("map"s).Value(out.str()); 
+}
+
+void JsonReader::BuildResponseForRouteRequest(const json::Dict& request, json::Builder& builder, const TransportRouter& router) const {
+    auto from = request.at("from"s).AsString();
+    auto to = request.at("to"s).AsString();
+    const auto route_info = router.BuildRoute(from, to);
+    
+    if (!route_info) {
+        builder.Key("error_message"s).Value("not found"s);
+    } else {
+        builder
+            .Key("total_time"s)
+            .Value(route_info->total_time)
+            .Key("items"s)
+            .StartArray();
+        for (const auto& item: route_info->items) {
+            builder
+                .StartDict()
+                .Key("type"s);
+                    
+            if (item.span_count == 0) {
+                builder
+                    .Value("Wait"s)
+                    .Key("stop_name"s) 
+                    .Value(item.from);
+            } else {
+                builder
+                    .Value("bus"s)
+                    .Key("bus"s)
+                    .Value(item.bus)
+                    .Key("span_count"s)
+                    .Value(item.span_count);
+            }
+                
+            builder.Key("time"s).Value(item.time).EndDict();
+        }  
+        builder.EndArray();
+    }
 }

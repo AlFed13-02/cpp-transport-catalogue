@@ -5,6 +5,7 @@
 #include "json.h"
 #include "svg.h"
 #include "map_renderer.h"
+#include "transport_router.h"
 
 #include <string_view>
 #include <unordered_set>
@@ -63,6 +64,8 @@ public:
     void HandleBusBaseRequests(std::vector<domain::BusBaseRequest>& requests);
     void HandleStopBaseRequests(const std::vector<domain::StopBaseRequest>& requests);
     svg::Document RenderRoutes(const RenderSettings& settings) const;
+    TransportRouter GetRouter(const domain::RoutingSettings& settings) const;
+    
     
 private:
     transport_catalogue::TransportCatalogue& db_;
