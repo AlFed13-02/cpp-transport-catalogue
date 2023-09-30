@@ -32,7 +32,7 @@ private:
     domain::BusBaseRequest ExtractBusBaseRequest(const json::Dict& request) const;
     
     RenderSettings GetRenderSettings() const;
-    domain::RoutingSettings GetRoutingSettings() const;
+    RoutingSettings GetRoutingSettings() const;
     
     static svg::Color TransformToColor(const json::Node& node);
     

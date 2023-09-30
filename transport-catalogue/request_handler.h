@@ -64,7 +64,7 @@ public:
     void HandleBusBaseRequests(std::vector<domain::BusBaseRequest>& requests);
     void HandleStopBaseRequests(const std::vector<domain::StopBaseRequest>& requests);
     svg::Document RenderRoutes(const RenderSettings& settings) const;
-    TransportRouter GetRouter(const domain::RoutingSettings& settings) const;
+    TransportRouter GetRouter(const RoutingSettings& settings) const;
     
     
 private:

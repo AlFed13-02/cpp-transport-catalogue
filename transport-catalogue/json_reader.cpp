@@ -126,8 +126,8 @@ RenderSettings JsonReader::GetRenderSettings() const {
     return settings;
 }
 
-domain::RoutingSettings JsonReader::GetRoutingSettings() const {
-    domain::RoutingSettings settings;
+RoutingSettings JsonReader::GetRoutingSettings() const {
+    RoutingSettings settings;
     auto json_settings = doc_.GetRoot().AsDict().at("routing_settings"s).AsDict();
     
     settings.bus_wait_time = json_settings.at("bus_wait_time"s).AsInt();

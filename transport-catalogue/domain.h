@@ -82,17 +82,4 @@ struct StopBaseRequest {
     double lng;
     std::unordered_map<std::string, int> distances;
 };
-    
-struct RouteItem {
-    std::string from;
-    std::string to;
-    std::string bus;
-    int span_count;
-    double time;
-};
-    
-struct RoutingSettings {
-    int bus_wait_time = 0;
-    int bus_velocity = 0;
-};
 }

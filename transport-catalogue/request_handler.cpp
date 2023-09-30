@@ -66,7 +66,6 @@ svg::Document RequestHandler::RenderRoutes(const RenderSettings& settings) const
     return renderer.Render(map_stat);
 }
 
-TransportRouter RequestHandler::GetRouter(const domain::RoutingSettings& settings) const {
-    const auto [graph, edge_descriptions] = db_.AsGraph(settings);
-    return TransportRouter(db_, graph, edge_descriptions);
+TransportRouter RequestHandler::GetRouter(const RoutingSettings& settings) const {
+    return TransportRouter(db_, settings);
 }
