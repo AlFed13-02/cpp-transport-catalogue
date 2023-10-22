@@ -20,6 +20,7 @@ private:
     using Graph = DirectedWeightedGraph<Weight>;
 
 public:
+    Router() = default;
     explicit Router(const Graph& graph);
 
     struct RouteInfo {
@@ -28,7 +29,7 @@ public:
     };
 
     std::optional<RouteInfo> BuildRoute(VertexId from, VertexId to) const;
-
+    
 private:
     struct RouteInternalData {
         Weight weight;
@@ -76,7 +77,7 @@ private:
     }
 
     static constexpr Weight ZERO_WEIGHT{};
-    const Graph graph_;
+    Graph graph_;
     RoutesInternalData routes_internal_data_;
 };
 
@@ -113,5 +114,4 @@ std::optional<typename Router<Weight>::RouteInfo> Router<Weight>::BuildRoute(Ver
 
     return RouteInfo{weight, std::move(edges)};
 }
-
 }  // namespace graph

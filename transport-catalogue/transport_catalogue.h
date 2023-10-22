@@ -16,6 +16,8 @@ namespace transport_catalogue {
     
 class TransportCatalogue {
 public:
+    using RoadDistances = std::unordered_map<const std::pair<const domain::Stop*, const domain::Stop*>, int, domain::detail::StopPairHasher>;
+    
     TransportCatalogue() = default;
     
     void AddStop(const std::string& name, double lat, double lng);
@@ -26,12 +28,15 @@ public:
     std::vector<geo::Coordinates> GetStopsCoordinates() const;
     size_t GetStopIdByName(const std::string& name) const;
     size_t GetStopCount() const;
+    const std::deque<domain::Stop>& GetStops() const;
     
     void AddBus(const std::string& name, const std::vector<std::string>& stop_names, bool is_roundtrip);
     const domain::Bus* FindBus(std::string_view name) const;
     const std::optional<domain::BusStat> GetBusStat(std::string_view name) const;
     domain::MapStat GetRoutesMapStat() const;
     const std::deque<domain::Bus>& GetBuses() const;
+    
+    const RoadDistances& GetRoadDistances() const;
    
 private:
     std::deque<domain::Stop> stops_;
@@ -39,6 +44,6 @@ private:
     std::unordered_map<std::string_view, const domain::Stop*> stops_lookup_;
     std::unordered_map<std::string_view, const domain::Bus*> buses_lookup_;
     std::unordered_map<const domain::Stop*, std::set<std::string_view>> stop_to_buses_; 
-    std::unordered_map<const std::pair<const domain::Stop*, const domain::Stop*>, int, domain::detail::StopPairHasher> road_distances_;
+    RoadDistances road_distances_;
 };
 }

@@ -66,10 +66,7 @@ domain::BusBaseRequest JsonReader::ExtractBusBaseRequest(const json::Dict& reque
 }
 
 
-json::Document JsonReader::ProcessStatRequests() const {
-    auto routing_settings = GetRoutingSettings();
-    auto router = request_handler_.GetRouter(routing_settings);
-    
+json::Document JsonReader::ProcessStatRequests(const RenderSettings& render_settings, const TransportRouter& router) const {
     auto requests = doc_.GetRoot().AsDict().at("stat_requests"s).AsArray();
     
     json::Builder response_builder;
@@ -85,7 +82,7 @@ json::Document JsonReader::ProcessStatRequests() const {
         } else if (request_type == "Stop"s) {
             BuildResponseForStopRequest(request.AsDict(), response_part_builder);
         } else if (request_type == "Map"s) {
-            BuildResponseForMapRequest(response_part_builder);
+            BuildResponseForMapRequest(response_part_builder, render_settings);
         } else if (request_type == "Route"s) {
             BuildResponseForRouteRequest(request.AsDict(), response_part_builder, router);
         }
@@ -93,6 +90,10 @@ json::Document JsonReader::ProcessStatRequests() const {
         response_builder.Value(response_part_builder.EndDict().Build().AsDict()).EndDict();     
     }
     return json::Document(response_builder.EndArray().Build());
+}
+
+std::string JsonReader::GetSerializationFileName() const {
+    return doc_.GetRoot().AsDict().at("serialization_settings"s).AsDict().at("file"s).AsString();
 }
 
 RenderSettings JsonReader::GetRenderSettings() const {
@@ -176,8 +177,8 @@ auto stop_stat = request_handler_.GetStopStat(request.at("name"s).AsString());
     }         
 }
 
-void JsonReader::BuildResponseForMapRequest(json::Builder& builder) const {
-    auto settings = GetRenderSettings();
+void JsonReader::BuildResponseForMapRequest(json::Builder& builder, const RenderSettings& settings) const {
+    //auto settings = GetRenderSettings();
     auto doc = request_handler_.RenderRoutes(settings);
     std::ostringstream out;
     doc.Render(out);

@@ -5,6 +5,7 @@
 #include <vector>
 #include <utility>
 #include <optional>
+#include <iostream>
 
 TransportRouter::TransportRouter(const transport_catalogue::TransportCatalogue& db,
                                  const RoutingSettings& settings) 
@@ -84,6 +85,6 @@ TransportRouter::Graph TransportRouter::InitializeInternalData(const RoutingSett
             }
         }
     }
+   // graph_ = graph;
     return graph;
 }
-

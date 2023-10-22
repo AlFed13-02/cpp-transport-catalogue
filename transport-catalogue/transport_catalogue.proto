@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+import "map_renderer.proto";
+import "transport_router.proto";
+
+package transport_catalogue_serialize;
+
+message Coordinates {
+    double lat = 1;
+    double lng = 2;
+}
+
+message Stop {
+    bytes name = 1;
+    Coordinates coordinates = 2;
+}
+
+message Bus {
+    bytes name = 1;
+    repeated bytes stop_name = 2;
+    bool is_roundtrip = 3;
+}
+
+message RoadDistance {
+    bytes from = 1;
+    bytes to = 2;
+    double distance = 3;
+}
+
+message TransportCatalogue {
+    repeated Stop stop = 1;
+    repeated Bus bus = 2;
+    repeated RoadDistance road_distance = 3;
+    render_settings_serialize.RenderSettings render_settings = 4;
+    transport_router_serialize.RoutingSettings routing_settings = 5;
+}

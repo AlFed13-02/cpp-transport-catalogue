@@ -72,6 +72,10 @@ size_t TransportCatalogue::GetStopCount() const {
     return stops_.size();
 }
     
+const std::deque<domain::Stop>& TransportCatalogue::GetStops() const {
+    return stops_;
+}
+    
 void TransportCatalogue::AddBus(const std::string& name, const std::vector<std::string>& stop_names, bool is_roundtrip) {
     domain::Bus bus;
     
@@ -156,5 +160,9 @@ const std::deque<domain::Bus>& TransportCatalogue::GetBuses() const {
 size_t TransportCatalogue::GetStopIdByName(const std::string& name) const {
     auto it = std::find_if(stops_.begin(), stops_.end(), [name](const auto& item) { return item.name == name;});
     return std::distance(stops_.begin(), it);
+}
+    
+const TransportCatalogue::RoadDistances& TransportCatalogue::GetRoadDistances() const {
+    return road_distances_;
 }
 }

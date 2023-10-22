@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package svg_serialize;
+
+message StringColor {
+    bytes color = 1;
+}
+message Rgb {
+  uint32 red = 1;
+  uint32 green = 2;
+  uint32 blue = 3;
+}
+
+message Rgba {
+  uint32 red = 1;
+  uint32 green = 2;
+  uint32 blue = 3;
+  double opacity = 4;
+}
+
+message  Color {
+   oneof value {
+       bool monostate = 1;
+       StringColor string_color = 2;
+       Rgb rgb = 3;
+       Rgba rgba = 4;
+  }
+}
