@@ -77,7 +77,7 @@ private:
     }
 
     static constexpr Weight ZERO_WEIGHT{};
-    Graph graph_;
+    const Graph& graph_;
     RoutesInternalData routes_internal_data_;
 };
 

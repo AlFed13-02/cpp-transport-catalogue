@@ -38,10 +38,10 @@ public:
     
 private:
     const transport_catalogue::TransportCatalogue& db_;
-    //Graph graph_;
+    Graph graph_;
     std::vector<RouteItem> edge_descriptions_;
     graph::Router<double> transport_router_;
     
-    Graph InitializeInternalData(const RoutingSettings& settings);
+    Graph& InitializeInternalData(const RoutingSettings& settings);
     
 };

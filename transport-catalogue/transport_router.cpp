@@ -30,7 +30,7 @@ std::optional<TransportRouter::RouteInfo> TransportRouter::BuildRoute(std::strin
     return route_info;
 }
 
-TransportRouter::Graph TransportRouter::InitializeInternalData(const RoutingSettings& settings) {
+TransportRouter::Graph& TransportRouter::InitializeInternalData(const RoutingSettings& settings) {
     Graph graph(db_.GetStopCount() * 2);
     auto buses = db_.GetBuses();
     
@@ -85,6 +85,6 @@ TransportRouter::Graph TransportRouter::InitializeInternalData(const RoutingSett
             }
         }
     }
-   // graph_ = graph;
-    return graph;
+    graph_ = std::move(graph);
+    return graph_;
 }
